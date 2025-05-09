@@ -9,7 +9,7 @@ from pdm.cli.commands.base import BaseCommand
 from pdm.cli.hooks import HookManager
 from pdm.cli.options import skip_option
 from pdm.cli.templates import ProjectTemplate
-from pdm.exceptions import PdmUsageError
+from pdm.exceptions import PdmUsageError, ProjectError
 from pdm.models.backends import _BACKENDS, DEFAULT_BACKEND, BuildBackend, get_backend
 from pdm.models.specifiers import get_specifier
 from pdm.utils import (
@@ -31,8 +31,36 @@ class Command(BaseCommand):
     - minimal: `pdm init minimal`, A minimal template with only `pyproject.toml`.
     """
 
+    supports_other_generator = True
+
     def __init__(self) -> None:
         self.interactive = True
+
+    def initialize_git(self, project: Project) -> None:
+        """Initialize a git repository if git is available and .git doesn't exist."""
+        import shutil
+        import subprocess
+
+        if (project.root / ".git").exists():
+            project.core.ui.info("Git repository already exists, skipping initialization.")
+            return
+
+        git_command = shutil.which("git")
+        if not git_command:
+            project.core.ui.info("Git command not found, skipping initialization.")
+            return
+
+        try:
+            subprocess.run(
+                [git_command, "init"],
+                cwd=project.root,
+                check=True,
+                capture_output=True,
+                encoding="utf-8",
+            )
+            project.core.ui.info("Git repository initialized successfully.")
+        except subprocess.CalledProcessError as e:
+            project.core.ui.error(f"Failed to initialize Git repository: {e.stderr}")
 
     def do_init(self, project: Project, options: argparse.Namespace) -> None:
         """Bootstrap the project and create a pyproject.toml"""
@@ -44,6 +72,10 @@ class Command(BaseCommand):
         else:
             self.set_python(project, options.python, hooks)
             self._init_builtin(project, options)
+
+        if options.init_git:
+            self.initialize_git(project)
+
         hooks.try_emit("post_init")
 
     def _init_copier(self, project: Project, options: argparse.Namespace) -> None:
@@ -114,7 +146,12 @@ class Command(BaseCommand):
     def get_metadata_from_input(self, project: Project, options: argparse.Namespace) -> dict[str, Any]:
         from pdm.formats.base import array_of_inline_tables, make_array, make_inline_table
 
-        name = self.ask_project(project)
+        if options.name:
+            if not validate_project_name(options.name):
+                raise ProjectError("Project name is not valid, it should follow PEP 426")
+            name = options.name
+        else:
+            name = self.ask_project(project)
         version = self.ask("Project version", options.project_version or "0.1.0")
         is_dist = options.dist or bool(options.backend)
         if not is_dist and self.interactive:
@@ -183,21 +220,22 @@ class Command(BaseCommand):
             False: termui.style("\\[not installed]", style="error"),
             True: termui.style("\\[installed]", style="success"),
         }
-        generator = parser.add_mutually_exclusive_group()
-        generator.add_argument(
-            "--copier",
-            action="store_const",
-            dest="generator",
-            const="copier",
-            help=f"Use Copier to generate project {status[package_installed('copier')]}",
-        )
-        generator.add_argument(
-            "--cookiecutter",
-            action="store_const",
-            dest="generator",
-            const="cookiecutter",
-            help=f"Use Cookiecutter to generate project {status[package_installed('cookiecutter')]}",
-        )
+        if self.supports_other_generator:
+            generator = parser.add_mutually_exclusive_group()
+            generator.add_argument(
+                "--copier",
+                action="store_const",
+                dest="generator",
+                const="copier",
+                help=f"Use Copier to generate project {status[package_installed('copier')]}",
+            )
+            generator.add_argument(
+                "--cookiecutter",
+                action="store_const",
+                dest="generator",
+                const="cookiecutter",
+                help=f"Use Cookiecutter to generate project {status[package_installed('cookiecutter')]}",
+            )
         group = parser.add_argument_group("builtin generator options")
         group.add_argument(
             "-n",
@@ -211,11 +249,16 @@ class Command(BaseCommand):
         )
         group.add_argument("--backend", choices=list(_BACKENDS), help="Specify the build backend, which implies --dist")
         group.add_argument("--license", help="Specify the license (SPDX name)")
+        group.add_argument("--name", help="Specify the project name")
         group.add_argument("--project-version", help="Specify the project's version")
+        group.add_argument(
+            "--no-git", dest="init_git", action="store_false", default=True, help="Do not initialize a git repository"
+        )
         parser.add_argument(
             "template", nargs="?", help="Specify the project template, which can be a local path or a Git URL"
         )
-        parser.add_argument("generator_args", nargs=argparse.REMAINDER, help="Arguments passed to the generator")
+        if self.supports_other_generator:
+            parser.add_argument("generator_args", nargs=argparse.REMAINDER, help="Arguments passed to the generator")
         parser.add_argument("-r", "--overwrite", action="store_true", help="Overwrite existing files")
         parser.set_defaults(search_parent=False, generator="builtin")
 
