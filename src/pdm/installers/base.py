@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 from functools import cached_property
 from itertools import chain
 from typing import Collection, Iterable
@@ -164,7 +165,14 @@ class BaseSynchronizer:
                 # We don't know whether a local dir has been changed, always update
                 return True
             assert can.link is not None
-            return url != backend.expand_line(can.link.url_without_fragment)
+            if url != backend.expand_line(can.link.url_without_fragment):
+                return True
+            direct_json = json.loads(content) if (content := dist.read_text("direct_url.json")) else None
+            if not direct_json or "archive_info" not in direct_json:
+                # We are not able to check, don't update
+                return False
+            dist_hash = direct_json["archive_info"]["hash"].replace("=", ":")
+            return not any(dist_hash == file_hash["hash"] for file_hash in can.hashes)
         specifier = can.req.as_pinned_version(can.version).specifier
         return not specifier.contains(dist.version, prereleases=True)
 
@@ -216,10 +224,19 @@ class BaseSynchronizer:
             dist = self.working_set[strip_extras(key)[0]]
             dist_version = dist.version
             termui.logger.info("Updating %s@%s -> %s...", key, dist_version, can.version)
-            manager.uninstall(dist)
-            manager.install(can)
+            manager.overwrite(dist, can)
         for key in to_remove:
             dist = self.working_set[key]
             termui.logger.info("Removing %s@%s...", key, dist.version)
             manager.uninstall(dist)
+        if self.install_self:
+            self_key = self.self_key
+            assert self_key
+            word = "a" if self.no_editable else "an editable"
+            termui.logger.info(f"Installing the project as {word} package...")
+            if self_key in self.working_set:
+                dist = self.working_set[strip_extras(self_key)[0]]
+                manager.overwrite(dist, self.self_candidate)
+            else:
+                manager.install(self.self_candidate)
         termui.logger.info("Synchronization complete.")
