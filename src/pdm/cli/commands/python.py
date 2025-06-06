@@ -85,7 +85,8 @@ class RemoveCommand(BaseCommand):
                 ui.error(f"No Python interpreter found for {options.version!r}")
                 ui.echo("Installed Pythons:", err=True)
                 for child in root.iterdir():
-                    ui.echo(f"  {child.name}", err=True)
+                    if not child.name.startswith("."):
+                        ui.echo(f"  {child.name}", err=True)
                 sys.exit(1)
         if version_dir.is_symlink():
             version_dir.unlink()
@@ -146,7 +147,7 @@ class InstallCommand(BaseCommand):
         arch = "x86" if arch == "32" else (arch or THIS_ARCH)
 
         ver, python_file = get_download_link(version, implementation=implementation, arch=arch, build_dir=False)
-        ver_str = f"{ver}{'t' if request.endswith('t') else ''}"
+        ver_str = str(ver)
         with ui.open_spinner(f"Downloading [success]{ver_str}[/]") as spinner:
             destination = root / ver_str
             logger.debug("Installing %s to %s", ver_str, destination)

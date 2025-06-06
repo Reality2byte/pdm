@@ -21,7 +21,7 @@ dependencies = [
     "virtualenv>=20",
     "pyproject-hooks",
     "unearth>=0.17.5",
-    "dep-logic>=0.4.4",
+    "dep-logic>=0.5",
     "findpython>=0.6.0,<1.0.0a0",
     "tomlkit>=0.11.1,<1",
     "shellingham>=1.3.2",
@@ -32,8 +32,7 @@ dependencies = [
     "tomli>=1.1.0; python_version < \"3.11\"",
     "importlib-metadata>=3.6; python_version < \"3.10\"",
     "hishel>=0.0.32",
-    "msgpack>=1.0",
-    "pbs-installer>=2024.4.18",
+    "pbs-installer>=2025.6.6",
     "httpx[socks]<1,>0.20",
     "filelock>=3.13",
     "httpcore>=1.0.6",
@@ -66,11 +65,12 @@ pytest = [
 copier = ["copier>=8.0.0"]
 cookiecutter = ["cookiecutter"]
 keyring = ["keyring"]
+msgpack = ["msgpack>=1.0"]
 template = [
     "pdm[copier,cookiecutter]",
 ]
 all = [
-    "pdm[keyring,template]",
+    "pdm[keyring,msgpack,template]",
 ]
 
 [project.scripts]
