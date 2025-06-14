@@ -25,6 +25,15 @@ DEFAULT_REPOSITORIES = {
 ui = termui.UI()
 
 
+def choices(*choices: str) -> Callable[[str], str]:
+    def converter(value: str) -> str:
+        if value not in choices:
+            raise ValueError(f"Value must be one of {choices}, got {value!r}")
+        return value
+
+    return converter
+
+
 def load_config(file_path: Path) -> dict[str, Any]:
     """Load a nested TOML document into key-value pairs
 
@@ -131,6 +140,12 @@ class Config(MutableMapping[str, str]):
             "PDM_USE_UV",
             ensure_boolean,
         ),
+        "lock.format": ConfigItem(
+            "The format of the lock file, can be `pdm` or `pylock`",
+            "pdm",
+            env_var="PDM_LOCK_FORMAT",
+            coerce=choices("pdm", "pylock"),
+        ),
         "global_project.fallback": ConfigItem(
             "Use the global project implicitly if no local project is found",
             False,
@@ -181,6 +196,12 @@ class Config(MutableMapping[str, str]):
         "python.use_pyenv": ConfigItem("Use the pyenv interpreter", True, coerce=ensure_boolean),
         "python.use_venv": ConfigItem(
             "Use virtual environments when available", True, env_var="PDM_USE_VENV", coerce=ensure_boolean
+        ),
+        "python.use_python_version": ConfigItem(
+            "Use .python-version file next to pyproject.toml to find python interpreters",
+            True,
+            env_var="PDM_USE_PYTHON_VERSION",
+            coerce=ensure_boolean,
         ),
         "python.install_root": ConfigItem(
             "The root directory to install python interpreters",

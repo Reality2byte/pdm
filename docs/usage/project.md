@@ -1,14 +1,22 @@
 # New Project
 
-To start with, create a new project with [`pdm init`](../reference/cli.md#init):
+To start with, create a new project with [`pdm new`](../reference/cli.md#new):
 
 ```bash
-mkdir my-project && cd my-project
-pdm init
+pdm new my-project
 ```
 
 You will need to answer a few questions, to help PDM to create a `pyproject.toml` file for you.
-For more usages of `pdm init`, please read [Create your project from a template](./template.md).
+For more usages of `pdm new`, please read [Create your project from a template](./template.md).
+
+## Create pyproject.toml for an existing project
+
+If you already have a project and want to create a `pyproject.toml` file for it, you can use [`pdm init`](../reference/cli.md#init):
+
+```bash
+cd my-project
+pdm init
+```
 
 ## Choose a Python interpreter
 
@@ -57,7 +65,7 @@ Install a free-threaded Python interpreter:
 pdm python install 3.13t
 ```
 
-!!! TIP "Share installations with Rye"
+!!! tip "Share installations with Rye"
 
     PDM installs Python interpreters using the same source as [Rye](https://rye-up.com). If you are using Rye at the same time, you can point the `python.install_root` to the same directory as Rye to share the Python interpreters:
 
@@ -165,7 +173,7 @@ PDM provides `import` command so that you don't have to initialize the project m
 Also, when you are executing [`pdm init`](../reference/cli.md#init) or [`pdm install`](../reference/cli.md#install), PDM can auto-detect possible files to import if your PDM project has not been initialized yet.
 
 !!! info
-Converting a `setup.py` will execute the file with the project interpreter. Make sure `setuptools` is installed with the interpreter and the `setup.py` is trusted.
+    Converting a `setup.py` will execute the file with the project interpreter. Make sure `setuptools` is installed with the interpreter and the `setup.py` is trusted.
 
 ## Working with version control
 

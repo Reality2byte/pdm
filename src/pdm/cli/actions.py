@@ -72,8 +72,8 @@ def do_lock(
                 for c in candidates:
                     c.hashes.clear()
                 repo.fetch_hashes(candidates)
-            lockfile = locked_repo.format_lockfile(groups=project.lockfile.groups, strategy=lock_strategy)
-        project.write_lockfile(lockfile)
+            project.lockfile.format_lockfile(locked_repo, groups=project.lockfile.groups, strategy=lock_strategy)
+        project.write_lockfile()
         return locked_repo.all_candidates
 
     if groups is None:
@@ -118,6 +118,7 @@ def do_lock(
         # any message is thrown to the output.
         resolver_class = project.get_resolver()
         with RichLockReporter(requirements, ui) as reporter:
+            collected_groups: set[str] = set()
             try:
                 for target in targets:
                     resolver = resolver_class(
@@ -131,7 +132,8 @@ def do_lock(
                         reporter=reporter,
                     )
                     reporter.update(f"Resolve for environment {target}")
-                    resolved, collected_groups = resolver.resolve()
+                    resolved, new_groups = resolver.resolve()
+                    collected_groups.update(new_groups)
                     locked_repo.merge_result(target, resolved)
                     if result_repo is not locked_repo:
                         result_repo.merge_result(target, resolved)
@@ -153,10 +155,10 @@ def do_lock(
                 raise ResolutionError("Unable to find a resolution") from None
             else:
                 groups = list(set(groups) | collected_groups)
-                data = result_repo.format_lockfile(groups=groups, strategy=lock_strategy)
                 if project.enable_write_lockfile:
                     reporter.update(f"{termui.Emoji.LOCK} Lock successful.", info="", completed=1)
-                project.write_lockfile(data, write=not dry_run)
+                project.lockfile.format_lockfile(result_repo, groups=groups, strategy=lock_strategy)
+                project.write_lockfile(write=not dry_run)
                 hooks.try_emit("post_lock", resolution=result_repo.all_candidates, dry_run=dry_run)
 
     return result_repo.all_candidates
@@ -194,6 +196,8 @@ def resolve_from_lockfile(
                 )
                 if loose_compatible_target is not None:
                     ui.warn(f"Found lock target {loose_compatible_target}, installing for env {env_spec}")
+                elif not lock_targets:  # pragma: no cover
+                    ui.warn("Missing lock targets or environment field in the lock file, installing it anyway.")
                 else:
                     errors = [f"None of the lock targets matches the current env {env_spec}:"] + [
                         f" - {target}" for target in lock_targets
@@ -241,7 +245,7 @@ def resolve_candidates_from_lockfile(
 
 def check_lockfile(project: Project, raise_not_exist: bool = True) -> str | None:
     """Check if the lock file exists and is up to date. Return the lock strategy."""
-    from pdm.project.lockfile import Compatibility
+    from pdm.project.lockfile.base import Compatibility
 
     if not project.lockfile.exists():
         if raise_not_exist:
