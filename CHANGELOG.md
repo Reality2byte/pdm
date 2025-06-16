@@ -1,3 +1,68 @@
+## Release v2.25.1 (2025-06-14)
+
+### Bug Fixes
+
+- Fix duplicated dependencies added to the lock file when the same dependency with extras is requested. ([#3542](https://github.com/pdm-project/pdm/issues/3542))
+- Stabilize order of the `extras` and `dependency-groups` fields in pylock output. ([#3543](https://github.com/pdm-project/pdm/issues/3543))
+
+
+## Release v2.25.0 (2025-06-13)
+
+### Features & Improvements
+
+- Support pylock as alternative lock format and make it opt-in by config. ([#3481](https://github.com/pdm-project/pdm/issues/3481))
+- Search for package metadata in lock file first when reuse strategy is used. ([#3522](https://github.com/pdm-project/pdm/issues/3522))
+
+### Bug Fixes
+
+- Fix Windows 11 install pdm error, which is because of msgpack install failure. ([#3485](https://github.com/pdm-project/pdm/issues/3485))
+- Change the return type of `array_of_inline_tables` to list[dict] from list[str] ([#3523](https://github.com/pdm-project/pdm/issues/3523))
+- Ensure uv resolver to include hash for package files. ([#3531](https://github.com/pdm-project/pdm/issues/3531))
+- Avoid infinite recursion when reading pyproject.toml with circular file dependencies. ([#3539](https://github.com/pdm-project/pdm/issues/3539))
+
+
+## Release v2.24.2 (2025-05-23)
+
+### Bug Fixes
+
+- Reinstalling local wheel if its checksum changes. ([#3503](https://github.com/pdm-project/pdm/issues/3503))
+- Ignore HTTP cache entries if deserialization fails. ([#3515](https://github.com/pdm-project/pdm/issues/3515))
+- Fetch missing URLs when `static_urls` is not enabled when running `pdm export -f pylock`. ([#3517](https://github.com/pdm-project/pdm/issues/3517))
+- Missing self package when `--self` or `--editable-self` is passed to `pdm export -f pylock`. ([#3518](https://github.com/pdm-project/pdm/issues/3518))
+
+### Miscellany
+
+- Add Python 3.14 to the test matrix. ([#3506](https://github.com/pdm-project/pdm/issues/3506))
+
+
+## Release v2.24.1 (2025-04-23)
+
+### Bug Fixes
+
+- Install the project when using the `BaseSynchronizer` with `install_self` set
+  to `True`. This fixes the bug that when calling `pdm sync --quiet`, it skips
+  installing the project itself. ([#3484](https://github.com/pdm-project/pdm/issues/3484))
+- Mark one additional test as requiring network, and fix another one
+  not to require it anymore. ([#3487](https://github.com/pdm-project/pdm/issues/3487))
+
+
+## Release v2.24.0 (2025-04-18)
+
+### Features & Improvements
+
+- New command `pdm new` that behaves like `pdm init` but creates a new project. ([#3462](https://github.com/pdm-project/pdm/issues/3462))
+- Support use `--name` as project name for command `pdm new` e.g. `pdm new hello --name world` ([#3476](https://github.com/pdm-project/pdm/issues/3476))
+- Support exporting to pylock.toml format as described by PEP 751. ([#3480](https://github.com/pdm-project/pdm/issues/3480))
+
+### Bug Fixes
+
+- Pass the `--quiet` option to `pdm sync` command. ([#3401](https://github.com/pdm-project/pdm/issues/3401))
+- If a `.python-version` file is found and it contains multiple lines, the file will be ignored. The usage of the `.python-version` file can be disabled, if configuration value `python.use_python_version` (or environment variable `PDM_USE_PYTHON_VERSION`) is `False`. ([#3417](https://github.com/pdm-project/pdm/issues/3417))
+- fix `pdm config -e` command to open read-only file under linux ([#3423](https://github.com/pdm-project/pdm/issues/3423))
+- Replace project names and import names in both `README.md` and `pyproject.toml` when running `pdm init <template>`. ([#3460](https://github.com/pdm-project/pdm/issues/3460))
+- Fix a bug that URL dependency hashes are not updated if running `pdm lock --update-reuse`. ([#3461](https://github.com/pdm-project/pdm/issues/3461))
+
+
 ## Release v2.23.1 (2025-04-09)
 
 ### Features & Improvements
@@ -10,7 +75,7 @@
 - Installation error for local plugins specified with file URL without a name. ([#3407](https://github.com/pdm-project/pdm/issues/3407))
 - Eliminate the warning about inherit_metadata when using uv mode. ([#3434](https://github.com/pdm-project/pdm/issues/3434))
 - Fix an installation failure when installing editable local dependencies on Windows and Python 3.13. ([#3444](https://github.com/pdm-project/pdm/issues/3444))
-- Fix a bug that overriden requirements in lock file get rewritten when adding a new requirement. ([#3446](https://github.com/pdm-project/pdm/issues/3446))
+- Fix a bug that overridden requirements in lock file get rewritten when adding a new requirement. ([#3446](https://github.com/pdm-project/pdm/issues/3446))
 - Cyclic group inclusion is detected incorrectly. Also show the cyclic group names in the error message. ([#3447](https://github.com/pdm-project/pdm/issues/3447))
 - Fix a bug that `pdm remove` doesn't handle dependency groups include correctly. ([#3452](https://github.com/pdm-project/pdm/issues/3452))
 - Update `unearth` to address an issue downloading git repos with short commit hash. ([#3455](https://github.com/pdm-project/pdm/issues/3455))

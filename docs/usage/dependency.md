@@ -162,14 +162,14 @@ doc = ["mkdocs"]
 
 For backward-compatibility, if only `-d` or `--dev` is specified, dependencies will go to `dev` group under `[dependency-groups]` by default.
 
-!!! NOTE
+!!! note
     The same group name MUST NOT appear in both `[dependency-groups]` and `[project.optional-dependencies]`.
 
 ### Editable dependencies
 
 **Local directories** and **VCS dependencies** can be installed in [editable mode](https://pip.pypa.io/en/stable/cli/pip_install/#editable-installs). If you are familiar with `pip`, it is just like `pip install -e <package>`. **Editable packages are allowed only in development dependencies**:
 
-!!! NOTE
+!!! note
     Editable installs are only allowed in the `dev` dependency group. Other groups, including the default, will fail with a `[PdmUsageError]`.
 
 ```bash
@@ -241,7 +241,7 @@ pdm update -dG test pytest
 
 ### About update strategy
 
-Similarly, PDM also provides 3 different behaviors of updating dependencies and sub-dependencies，
+Similarly, PDM also provides 3 different behaviors of updating dependencies and sub-dependencies,
 which is given by `--update-<strategy>` option:
 
 - `reuse`: Keep all locked dependencies except for those given in the command line (default).

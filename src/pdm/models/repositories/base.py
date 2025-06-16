@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
 import fnmatch
 import re
 import sys
@@ -107,17 +106,7 @@ class BaseRepository:
         else:
             if last_ext_info is not None:
                 raise last_ext_info[1].with_traceback(last_ext_info[2])  # type: ignore[union-attr]
-        if candidate.req.extras:
-            # XXX: If the requirement has extras, add the original candidate
-            # (without extras) as its dependency. This ensures the same package with
-            # different extras resolve to the same version.
-            self_req = dataclasses.replace(
-                candidate.req.as_pinned_version(candidate.version),
-                extras=None,
-                marker=None,
-            )
-            requirements.insert(0, self_req)
-        # Store the metadata on the candidate for caching
+
         candidate.requires_python = requires_python
         candidate.summary = summary
         return requirements, PySpecSet(requires_python), summary
@@ -290,7 +279,7 @@ class BaseRepository:
             candidate.req.is_vcs or (candidate.req.is_file_or_url and candidate.req.is_local_dir)  # type: ignore[attr-defined]
         ):
             return []
-        if candidate.hashes:
+        if candidate.hashes and candidate.req.is_named:
             return candidate.hashes
         req = candidate.req.as_pinned_version(candidate.version)
         comes_from = candidate.link.comes_from if candidate.link else None

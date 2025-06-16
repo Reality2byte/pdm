@@ -27,7 +27,7 @@ from pdm.models.repositories import BaseRepository, LockedRepository
 from pdm.models.requirements import Requirement, parse_line, parse_requirement, strip_extras
 from pdm.models.specifiers import PySpecSet
 from pdm.project.config import Config, ensure_boolean
-from pdm.project.lockfile import FLAG_INHERIT_METADATA, Lockfile
+from pdm.project.lockfile import FLAG_INHERIT_METADATA, Lockfile, load_lockfile
 from pdm.project.project_file import PyProject
 from pdm.utils import (
     cd,
@@ -70,7 +70,6 @@ class Project:
     """
 
     PYPROJECT_FILENAME = "pyproject.toml"
-    LOCKFILE_FILENAME = "pdm.lock"
     DEPENDENCIES_RE = re.compile(r"(?:(.+?)-)?dependencies")
 
     def __init__(
@@ -128,12 +127,24 @@ class Project:
     @property
     def lockfile(self) -> Lockfile:
         if self._lockfile is None:
-            self.set_lockfile(self.root / self.LOCKFILE_FILENAME)
+            enable_pylock = self.config["lock.format"] == "pylock"
+            if (path := self.root / "pylock.toml").exists() and enable_pylock:
+                self.set_lockfile(path)
+            elif (path := self.root / "pdm.lock").exists():
+                if enable_pylock:  # pragma: no cover
+                    self.core.ui.warn(
+                        "`lock.format` is set to pylock but pylock.toml is not found, using pdm.lock instead. "
+                        "You can generate pylock with `pdm export -f pylock -o pylock.toml`."
+                    )
+                self.set_lockfile(path)
+            else:
+                file_path = "pylock.toml" if enable_pylock else "pdm.lock"
+                self.set_lockfile(self.root / file_path)
             assert self._lockfile is not None
         return self._lockfile
 
     def set_lockfile(self, path: str | Path) -> None:
-        self._lockfile = Lockfile(path, ui=self.core.ui)
+        self._lockfile = load_lockfile(self, path)
         if self.config.get("use_uv"):
             self._lockfile.default_strategies.discard(FLAG_INHERIT_METADATA)
         if not self.config["strategy.inherit_metadata"]:
@@ -270,7 +281,9 @@ class Project:
                 return self.python
 
         if self.root.joinpath("__pypackages__").exists() or not config["python.use_venv"] or self.is_global:
-            for py_version in self.iter_interpreters(filter_func=match_version):
+            for py_version in self.iter_interpreters(
+                filter_func=match_version, respect_version_file=config["python.use_python_version"]
+            ):
                 note("[success]__pypackages__[/] is detected, using the PEP 582 mode")
                 self.python = py_version
                 return py_version
@@ -532,6 +545,18 @@ class Project:
 
         return LockedRepository(lockfile, self.sources, self.environment, env_spec=env_spec)
 
+    def split_extras_groups(self, all_groups: list[str]) -> tuple[list[str], list[str]]:
+        """Split the groups into extras and non-extras."""
+        extras: list[str] = []
+        groups: list[str] = []
+        optional_groups = {normalize_name(group) for group in self.pyproject.metadata.get("optional-dependencies", [])}
+        for group in all_groups:
+            if group in optional_groups:
+                extras.append(group)
+            else:
+                groups.append(group)
+        return extras, groups
+
     @property
     def locked_repository(self) -> LockedRepository:
         deprecation_warning("Project.locked_repository is deprecated, use Project.get_locked_repository() instead", 2)
@@ -581,10 +606,13 @@ class Project:
         params: dict[str, Any] = {}
         if strategy != "all":
             params["tracked_names"] = [strip_extras(name)[0] for name in tracked_names or ()]
-        locked_candidates: dict[str, list[Candidate]] = (
-            {} if locked_repository is None else locked_repository.all_candidates
-        )
-        params["locked_candidates"] = locked_candidates
+        if "locked_repository" in inspect.signature(provider_class).parameters:
+            params["locked_repository"] = locked_repository
+        else:
+            locked_candidates: dict[str, list[Candidate]] = (
+                {} if locked_repository is None else locked_repository.all_candidates
+            )
+            params["locked_candidates"] = locked_candidates
         return provider_class(repository=repository, direct_minimal_versions=direct_minimal_versions, **params)
 
     def get_reporter(
@@ -601,17 +629,18 @@ class Project:
 
         return RichLockReporter(requirements, self.core.ui)
 
-    def get_lock_metadata(self) -> dict[str, Any]:
-        content_hash = "sha256:" + self.pyproject.content_hash("sha256")
-        return {"lock_version": str(self.lockfile.spec_version), "content_hash": content_hash}
-
-    def write_lockfile(self, toml_data: dict, show_message: bool = True, write: bool = True, **_kwds: Any) -> None:
+    def write_lockfile(
+        self, toml_data: Any = None, show_message: bool = True, write: bool = True, **_kwds: Any
+    ) -> None:
         """Write the lock file to disk."""
-        if _kwds:
+        if _kwds:  # pragma: no cover
             deprecation_warning("Extra arguments have been moved to `format_lockfile` function", stacklevel=2)
-        toml_data["metadata"].update(self.get_lock_metadata())
-        self.lockfile.set_data(toml_data)
-
+        if toml_data is not None:  # pragma: no cover
+            deprecation_warning(
+                "Passing toml_data to write_lockfile is deprecated, please use `format_lockfile` instead", stacklevel=2
+            )
+            self.lockfile.set_data(toml_data)
+        self.lockfile.update_hash(self.pyproject.content_hash("sha256"))
         if write and self.enable_write_lockfile:
             self.lockfile.write(show_message)
 
@@ -628,10 +657,9 @@ class Project:
         return can
 
     def is_lockfile_hash_match(self) -> bool:
-        hash_in_lockfile = str(self.lockfile.hash)
-        if not hash_in_lockfile:
+        algo, hash_value = self.lockfile.hash
+        if not hash_value:
             return False
-        algo, hash_value = hash_in_lockfile.split(":")
         content_hash = self.pyproject.content_hash(algo)
         return content_hash == hash_value
 
@@ -801,16 +829,19 @@ class Project:
 
         from pdm.cli.commands.python import InstallCommand
 
+        def read_version_from_version_file(python_version_file: Path) -> str | None:
+            content = python_version_file.read_text().strip()
+            content_lines = [cl for cl in content.splitlines() if not cl.lstrip().startswith("#")]
+
+            return content_lines[0] if len(content_lines) == 1 else None
+
+        version_file = self.root.joinpath(".python-version")
         found = False
-        if (
-            respect_version_file
-            and not python_spec
-            and (os.getenv("PDM_PYTHON_VERSION") or self.root.joinpath(".python-version").exists())
-        ):
-            requested = os.getenv("PDM_PYTHON_VERSION") or self.root.joinpath(".python-version").read_text().strip()
-            if requested not in self.python_requires:
+        if respect_version_file and not python_spec and (os.getenv("PDM_PYTHON_VERSION") or version_file.exists()):
+            requested = os.getenv("PDM_PYTHON_VERSION") or read_version_from_version_file(version_file)
+            if requested is not None and requested not in self.python_requires:
                 self.core.ui.warn(".python-version is found but the version is not in requires-python, ignored.")
-            else:
+            elif requested is not None:
                 python_spec = requested
         for interpreter in self.find_interpreters(python_spec, search_venv):
             if filter_func is None or filter_func(interpreter):

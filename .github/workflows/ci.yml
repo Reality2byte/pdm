@@ -10,8 +10,6 @@ on:
       - "docs/**"
       - "news/**"
       - "*.md"
-      - Dockerfile
-      - tasks/benchmarks/**
   push:
     branches:
       - main
@@ -21,8 +19,6 @@ on:
       - "docs/**"
       - "news/**"
       - "*.md"
-      - Dockerfile
-      - tasks/benchmarks/**
 
 concurrency:
   group: ${{ github.event.number || github.run_id }}
@@ -36,11 +32,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: [3.9, "3.10", 3.11, 3.12, 3.13, 3.14]
         os: [ubuntu-latest, windows-latest, macos-latest]
         install-via: [pip]
         include:
-          - python-version: "3.11"
+          - python-version: 3.12
             os: ubuntu-latest
             install-via: script
     steps:
@@ -55,6 +51,7 @@ jobs:
             3.11
             3.12
             3.13
+            3.14
           allow-prereleases: true
         if: matrix.os != 'macos-latest'
       - name: Setup Python Versions
@@ -65,6 +62,7 @@ jobs:
             3.11
             3.12
             3.13
+            3.14
           allow-prereleases: true
         if: matrix.os == 'macos-latest'
       - name: Setup Python ${{ matrix.python-version }}
@@ -75,12 +73,12 @@ jobs:
           allow-prereleases: true
 
       - name: Cache venv
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: .venv
           key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pdm.lock') }}
       - name: Install uv
-        uses: astral-sh/setup-uv@v1
+        uses: astral-sh/setup-uv@v6
         with:
           version: "latest"
       - name: Install current PDM via pip
@@ -94,7 +92,7 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Install Dev Dependencies
         run: |
-          pdm install -v -dGtest
+          pdm install -v -Gtest -Gmsgpack
           pdm run pip install -U setuptools
           pdm info
       - name: Run Tests
