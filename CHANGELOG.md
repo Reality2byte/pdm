@@ -1,3 +1,22 @@
+## Release v2.26.8 (2026-04-21)
+
+### Features & Improvements
+
+- `pdm lock --exclude-newer` now accepts relative durations in the format `N{d|h|w}`, such as `7d`, `12h`, and `3w`, in addition to absolute UTC dates and timestamps. ([#3760](https://github.com/pdm-project/pdm/issues/3760))
+
+### Bug Fixes
+
+- Fixed `pdm add --frozen-lockfile --no-sync` to skip dependency resolution and update only `pyproject.toml` without attempting to write the lockfile. ([#3755](https://github.com/pdm-project/pdm/issues/3755))
+- Fix `[tool.pdm.options]` being loaded from the current working directory instead of the target project when `-p`/`--project` is used. ([#3756](https://github.com/pdm-project/pdm/issues/3756))
+- Put `make_file_executable` into `pdm.utils` to replace the method of the same name in `installer`. To fix a breakage introduced by `installer` v1. ([#3764](https://github.com/pdm-project/pdm/issues/3764))
+- Fix `pdm init <template>` overwriting the template's additions to `build-system.requires` when `build-system.build-backend` matches the user's selection. ([#3766](https://github.com/pdm-project/pdm/issues/3766))
+- Fixed `PySpecSet` merging to handle impossible Python version ranges like `>=3.6,<3.4` without crashing on empty or inverted gaps. ([#3767](https://github.com/pdm-project/pdm/issues/3767))
+
+### Documentation
+
+- The latest documentation version now shows a warning banner explaining that it is kept in sync with the main branch and may not match the features available in the latest released version. ([#3765](https://github.com/pdm-project/pdm/issues/3765))
+
+
 ## Release v2.26.7 (2026-03-24)
 
 ### Features & Improvements
