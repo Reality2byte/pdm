@@ -93,6 +93,20 @@ def test_lock_refresh_keep_consistent(pdm, project, repository):
     assert project.lockfile._path.read_text() == previous
 
 
+def test_pylock_refresh_preserves_dependency_group_markers(pdm, project, repository):
+    project.project_config["lock.format"] = "pylock"
+    project.add_dependencies(["requests"], to_group="dev", dev=True)
+    result = pdm(["lock", "-G", "dev"], obj=project)
+    assert result.exit_code == 0
+    package = next(p for p in project.lockfile["packages"] if p["name"] == "requests")
+    assert package["marker"] == '"dev" in dependency_groups'
+
+    result = pdm(["lock", "--refresh"], obj=project)
+    assert result.exit_code == 0
+    package = next(p for p in project.lockfile["packages"] if p["name"] == "requests")
+    assert package["marker"] == '"dev" in dependency_groups'
+
+
 def test_lock_check_no_change_success(pdm, project, repository):
     project.add_dependencies(["requests"])
     result = pdm(["lock"], obj=project)

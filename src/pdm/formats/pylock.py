@@ -143,6 +143,8 @@ class PyLockConverter:
                     continue
                 package_table = self.make_package(package)
                 selection_markers: list[BaseMarker] = []
+                if not package.marker.is_any():
+                    selection_markers.append(package.marker)
                 for item in sorted(package.candidate.req.groups, key=_group_sort_key):
                     item = normalize_name(item)
                     if item in extras:
